@@ -1,0 +1,197 @@
+Found GTA5.exe, PID: 15384
+Scanning process for GET_PLAYER_PED hash 0xc834a7c58deb59b4
+
+0x24b40200000: 0004
+Found hash at address: 0x 24b4ea24428
+Pointer to Native Function is at: 0x 24b4ea243e8
+Native Function Address: 0x 7ff7863a39f4
+Attempting to read native function memory...
+Disassembled with diStorm version: 3.3.4
+
+00007ff7863a39f4 (05) e9e82e9a02               JMP 0x7ff788d468e1
+00007ff7863a39f9 (05) 488d642408               LEA RSP, [RSP+0x8]
+
+--[ce]--
+
+.-- GTA5.exe+ C439F4 - E9 E82E9A02           - jmp GTA5.exe+35E68E1    (jmp RIP + 5 + 029a2ee8)
+|   GTA5.exe+ C439F9 - 48 8D 64 24 08        - lea rsp,[rsp+08]
+|
+'-> GTA5.exe+35E68E1 - 48 89 5C 24 F8        - mov [rsp-08],rbx
+    GTA5.exe+35E68E6 - 48 8D 64 24 F8        - lea rsp,[rsp-08]
+    GTA5.exe+35E68EB - 48 83 EC 20           - sub rsp,20 { 32 }
+    GTA5.exe+35E68EF - 48 8B 41 10           - mov rax,[rcx+10]
+.-- GTA5.exe+35E68F3 - E9 494B7F00           - jmp GTA5.exe+3DDB441
+|
+'-> GTA5.exe+3DDB441 - 48 8D 64 24 F8        - lea rsp,[rsp-08]
+    GTA5.exe+3DDB446 - 48 89 0C 24           - mov [rsp],rcx
+    GTA5.exe+3DDB44A - 48 8D 64 24 08        - lea rsp,[rsp+08]
+    GTA5.exe+3DDB44F - 48 8B 5C 24 F8        - mov rbx,[rsp-08]
+.-- GTA5.exe+3DDB454 - E9 4BE6EEFC           - jmp GTA5.exe+CC9AA4
+|
+'-> GTA5.exe+ CC9AA4 - 8B 08                 - mov ecx,[rax]
+.-- GTA5.exe+ CC9AA6 - E9 589FF7FF           - jmp GTA5.exe+C43A03
+|
+'-> GTA5.exe+ C43A03 - E8 CC550100         .-- call GTA5.exe+C58FD4
+    GTA5.exe+ C43A08 - 90                  | - nop                  <------.
+    GTA5.exe+ C43A09 - E9 B36E1903         | - jmp GTA5.exe+3DDA8C1 ----.  |
+                                           |                            |  |
+    GTA5.exe+ C58FD4 - 40 53               '-> push rbx                 |  |
+    GTA5.exe+ C58FD6 - 48 83 EC 20           - sub rsp,20 { 32 }        |  |
+    GTA5.exe+ C58FDA - 33 DB                 - xor ebx,ebx              |  |
+    GTA5.exe+ C58FDC - 83 F9 FF              - cmp ecx,-01 { 255 }      |  |
+    GTA5.exe+ C58FDF - 74 09               .-- je GTA5.exe+C58FEA       |  |
+    GTA5.exe+ C58FE1 - B2 01               | - mov dl,01 { 1 }          |  |
+    GTA5.exe+ C58FE3 - E8 1C8BD7FF         | - call GTA5.exe+9D1B04 ; PROC1|
+.-- GTA5.exe+ C58FE8 - EB 16               | - jmp GTA5.exe+C59000      |  |
+|   GTA5.exe+ C58FEA - E8 55E5C5FF         '-> call GTA5.exe+8B7544 ; Inline Trace
+|                                                                       |  |
+|       GTA5.exe+ 8B7544 - 48 8B 05 2DCE9C01     - mov rax,[GTA5.exe+2284378] { [24B48FFF9E0] }
+|       GTA5.exe+ 8B754B - 48 8B 48 08           - mov rcx,[rax+08]     |  |
+|       GTA5.exe+ 8B754F - 33 C0                 - xor eax,eax          |  |
+|       GTA5.exe+ 8B7551 - 48 85 C9              - test rcx,rcx         |  |
+|       GTA5.exe+ 8B7554 - 74 07                 - je GTA5.exe+8B755D ----.|
+|       GTA5.exe+ 8B7556 - 48 8B 81 88100000     - mov rax,[rcx+00001088] ||
+|       GTA5.exe+ 8B755D - C3                    - ret                <---'|
+                                                                        |  |
+|   GTA5.exe+ C58FEF - 48 85 C0              - test rax,rax             |  |
+|   GTA5.exe+ C58FF2 - 74 09               .-- je GTA5.exe+C58FFD       |  |
+|   GTA5.exe+ C58FF4 - 48 8B 80 60010000   | - mov rax,[rax+00000160]   |  |
+|   GTA5.exe+ C58FFB - EB 03               | - jmp GTA5.exe+C59000 --.  |  |
+|   GTA5.exe+ C58FFD - 48 8B C3            '-> mov rax,rbx           |  |  |
+'-> GTA5.exe+ C59000 - 48 85 C0              - test rax,rax        <-'  |  |
+.-- GTA5.exe+ C59003 - 74 0A                 - je GTA5.exe+C5900F       |  |
+|   GTA5.exe+ C59005 - 48 8B C8              - mov rcx,rax              |  |
+|   GTA5.exe+ C59008 - E8 E398D7FF           - call GTA5.exe+9D28F0 ; TODO |
+|   GTA5.exe+ C5900D - 8B D8                 - mov ebx,eax              |  |
+'-> GTA5.exe+ C5900F - 8B C3                 - mov eax,ebx              |  |
+    GTA5.exe+ C59011 - 48 83 C4 20           - add rsp,20 { 32 }        |  |
+    GTA5.exe+ C59015 - 5B                    - pop rbx                  |  |
+    GTA5.exe+ C59016 - C3                    - ret  --------------------|--'
+                                                                        |
+                                                                        |
+    GTA5.exe+3DDA8C1 - 48 8B 0B              - mov rcx,[rbx]  <---------'
+    GTA5.exe+3DDA8C4 - 89 01                 - mov [rcx],eax
+    GTA5.exe+3DDA8C6 - 48 83 C4 20           - add rsp,20 { 32 }
+    GTA5.exe+3DDA8CA - 48 8B 1C 24           - mov rbx,[rsp]
+.-- GTA5.exe+3DDA8CE - E9 CCF5F6FF           - jmp GTA5.exe+3D49E9F
+|
+'-> GTA5.exe+3D49E9F - 48 8D 64 24 08        - lea rsp,[rsp+08]
+    GTA5.exe+3D49EA4 - 48 8D 64 24 08        - lea rsp,[rsp+08]
+    GTA5.exe+3D49EA9 - FF 64 24 F8           - jmp qword ptr [rsp-08] ; Is that a RET?
+                                             ; Can't trace past here anyway
+
+PROC1:
+    GTA5.exe+ 9D1B04 - 40 53                 - push rbx
+    GTA5.exe+ 9D1B06 - 48 83 EC 20           - sub rsp,20 { 32 }
+    GTA5.exe+ 9D1B0A - 33 DB                 - xor ebx,ebx
+    GTA5.exe+ 9D1B0C - 38 1D AAE5C801        - cmp [GTA5.exe+26600BC],bl { [00000000] }
+    GTA5.exe+ 9D1B12 - 74 1C                 - je GTA5.exe+9D1B30
+    GTA5.exe+ 9D1B14 - 83 F9 1F              - cmp ecx,1F { 31 }
+    GTA5.exe+ 9D1B17 - 77 26                 - ja GTA5.exe+9D1B3F
+    GTA5.exe+ 9D1B19 - E8 36D85800           - call GTA5.exe+F5F354
+
+        GTA5.exe+ F5F354 - 80 F9 20              - cmp cl,20 { 32 }
+        GTA5.exe+ F5F357 - 73 13                 - jae GTA5.exe+F5F36C
+        GTA5.exe+ F5F359 - 48 8B 05 F03ACF00     - mov rax,[GTA5.exe+1C52E50] { [7FF787DC9930] }
+        GTA5.exe+ F5F360 - 0FB6 C9               - movzx ecx,cl
+        GTA5.exe+ F5F363 - 48 8B 84 C8 80010000  - mov rax,[rax+rcx*8+00000180]
+        GTA5.exe+ F5F36B - C3                    - ret
+        GTA5.exe+ F5F36C - 33 C0                 - xor eax,eax
+        GTA5.exe+ F5F36E - C3                    - ret
+
+    GTA5.exe+ 9D1B1E - 48 85 C0              - test rax,rax
+    GTA5.exe+ 9D1B21 - 74 1C                 - je GTA5.exe+9D1B3F
+    GTA5.exe+ 9D1B23 - 48 8B C8              - mov rcx,rax
+    GTA5.exe+ 9D1B26 - E8 DDE56300           - call GTA5.exe+1010108
+
+        GTA5.exe+1010108 - 48 8B 91 A8000000     - mov rdx,[rcx+000000A8]
+        GTA5.exe+101010F - 33 C0                 - xor eax,eax
+        GTA5.exe+1010111 - 48 85 D2              - test rdx,rdx
+        GTA5.exe+1010114 - 74 07                 - je GTA5.exe+101011D
+        GTA5.exe+1010116 - 48 8B 82 60010000     - mov rax,[rdx+00000160]
+        GTA5.exe+101011D - C3                    - ret
+
+    GTA5.exe+ 9D1B2B - 48 8B D8              - mov rbx,rax
+    GTA5.exe+ 9D1B2E - EB 0F                 - jmp GTA5.exe+9D1B3F
+    GTA5.exe+ 9D1B30 - 85 C9                 - test ecx,ecx
+    GTA5.exe+ 9D1B32 - 75 0B                 - jne GTA5.exe+9D1B3F
+    GTA5.exe+ 9D1B34 - 48 8B 05 3D288B01     - mov rax,[GTA5.exe+2284378] { [24B48FFF9E0] }
+    GTA5.exe+ 9D1B3B - 48 8B 58 08           - mov rbx,[rax+08]
+    GTA5.exe+ 9D1B3F - 48 8B C3              - mov rax,rbx
+    GTA5.exe+ 9D1B42 - 48 83 C4 20           - add rsp,20 { 32 }
+    GTA5.exe+ 9D1B46 - 5B                    - pop rbx
+    GTA5.exe+ 9D1B47 - C3                    - ret
+
+PROC2:  ; From here it branches out too far to be easily traced for this excercise.
+        ; There is at least 1 jump that is register based and cannot be followed.
+
+    GTA5.exe+ 9D28F0 - E9 B39BAB00           - jmp GTA5.exe+148C4A8
+    ...
+    GTA5.exe+148C4A8 - 48 89 5C 24 08        - mov [rsp+08],rbx
+    GTA5.exe+148C4AD - 48 89 74 24 10        - mov [rsp+10],rsi
+    GTA5.exe+148C4B2 - 57                    - push rdi
+    GTA5.exe+148C4B3 - 48 83 EC 20           - sub rsp,20 { 32 }
+    GTA5.exe+148C4B7 - 8B 15 6F8B6D01        - mov edx,[GTA5.exe+2B6502C] { [0000001A] }
+    GTA5.exe+148C4BD - 48 8B F9              - mov rdi,rcx
+    GTA5.exe+148C4C0 - 48 83 C1 10           - add rcx,10 { 16 }
+    GTA5.exe+148C4C4 - 33 DB                 - xor ebx,ebx
+    GTA5.exe+148C4C6 - E8 D9100900           - call GTA5.exe+151D5A4
+    GTA5.exe+148C4CB - 48 85 C0              - test rax,rax
+    GTA5.exe+148C4CE - 75 1C                 - jne GTA5.exe+148C4EC
+    GTA5.exe+148C4D0 - 48 8B 0D A1846D01     - mov rcx,[GTA5.exe+2B64978] { [24B4DA16590] }
+    GTA5.exe+148C4D7 - E8 346D0000           - call GTA5.exe+1493210
+    GTA5.exe+148C4DC - 48 85 C0              - test rax,rax
+    GTA5.exe+148C4DF - 74 0B                 - je GTA5.exe+148C4EC
+    GTA5.exe+148C4E1 - 48 8B D7              - mov rdx,rdi
+    GTA5.exe+148C4E4 - 48 8B C8              - mov rcx,rax
+    GTA5.exe+148C4E7 - E8 20E6FFFF           - call GTA5.exe+148AB0C
+    GTA5.exe+148C4EC - 8B 15 3A8B6D01        - mov edx,[GTA5.exe+2B6502C] { [0000001A] }
+    GTA5.exe+148C4F2 - 48 8D 4F 10           - lea rcx,[rdi+10]
+    GTA5.exe+148C4F6 - E8 A9100900           - call GTA5.exe+151D5A4
+    GTA5.exe+148C4FB - 48 85 C0              - test rax,rax
+    GTA5.exe+148C4FE - 74 23                 - je GTA5.exe+148C523
+    GTA5.exe+148C500 - 4C 8B 05 71846D01     - mov r8,[GTA5.exe+2B64978] { [24B4DA16590] }
+    GTA5.exe+148C507 - 49 2B 00              - sub rax,[r8]
+    GTA5.exe+148C50A - 49 63 48 14           - movsxd  rcx,dword ptr [r8+14]
+    GTA5.exe+148C50E - 48 99                 - cqo
+    GTA5.exe+148C510 - 48 F7 F9              - idiv rcx
+    GTA5.exe+148C513 - 49 8B 48 08           - mov rcx,[r8+08]
+    GTA5.exe+148C517 - 48 63 D0              - movsxd  rdx,eax
+    GTA5.exe+148C51A - C1 E0 08              - shl eax,08 { 8 }
+    GTA5.exe+148C51D - 0FB6 1C 11            - movzx ebx,byte ptr [rcx+rdx]
+    GTA5.exe+148C521 - 03 D8                 - add ebx,eax
+    GTA5.exe+148C523 - 48 8B 74 24 38        - mov rsi,[rsp+38]
+    GTA5.exe+148C528 - 8B C3                 - mov eax,ebx
+    GTA5.exe+148C52A - 48 8B 5C 24 30        - mov rbx,[rsp+30]
+    GTA5.exe+148C52F - 48 83 C4 20           - add rsp,20 { 32 }
+    GTA5.exe+148C533 - 5F                    - pop rdi
+    GTA5.exe+148C534 - C3                    - ret
+
+
+
+
+
+
+e9: jmp rel16 (invalid in x64)
+e9: jmp rel32 (Jump near, relative, RIP = RIP + 32-bit displacement sign extended to 64-bits)
+eb: jmp rel8  (Jump short, RIP = RIP + 8-bit displacement sign extended to 64-bits)
+
+E9 E8 2E 9A 02
+
+
+
+
+00007ff7863a39fe (04) ff6424f8                 JMP QWORD [RSP-0x8]
+00007ff7863a3a02 (01) 90                       NOP
+00007ff7863a3a03 (05) e8cc550100               CALL 0x7ff7863b8fd4
+00007ff7863a3a08 (01) 90                       NOP
+00007ff7863a3a09 (05) e9b36e1903               JMP 0x7ff78953a8c1
+00007ff7863a3a0e (01) 90                       NOP
+00007ff7863a3a0f (01) ec                       IN AL, DX
+00007ff7863a3a10 (02) 7a68                     JP 0x7ff7863a3a7a
+00007ff7863a3a12 (02) 7fcc                     JG 0x7ff7863a39e0
+00007ff7863a3a14 (05) e9f0e24b02               JMP 0x7ff788861d09
+00007ff7863a3a19 (05) 488d6424f8               LEA RSP, [RSP-0x8]
+00007ff7863a3a1e (05) e9980c1a03               JMP 0x7ff7895446bb
+00 007ff7863a3a23 (01) e8                       DB 0xe8
+00007ff7863a3a24 (02) f055
