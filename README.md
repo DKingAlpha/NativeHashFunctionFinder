@@ -2,14 +2,13 @@
     NATIVE HASH FUNCTION FINDER : Console Application Project Overview
 ========================================================================
 
-AppWizard has created this ConsoleApplication1 application for you.
-
-(Yup it did!)
-
 This program scans an actively running copy of GTAV.exe for known hashes
 and produces output like this:
 
 **Currently supports b757 only**
+
+Note: Includes portions of https://github.com/gdabah/distorm
+> Powerful Disassembler Library For x86/AMD64
 
 ```
 Scanning process for PLAYER::GET_PLAYER_PED hash 0xc834a7c58deb59b4
