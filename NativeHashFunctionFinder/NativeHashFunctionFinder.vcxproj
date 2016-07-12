@@ -157,9 +157,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
+    <ClCompile Include="Libraries\distorm\src\decoder.c" />
+    <ClCompile Include="Libraries\distorm\src\distorm.c" />
+    <ClCompile Include="Libraries\distorm\src\instructions.c" />
+    <ClCompile Include="Libraries\distorm\src\insts.c" />
+    <ClCompile Include="Libraries\distorm\src\mnemonics.c" />
+    <ClCompile Include="Libraries\distorm\src\operands.c" />
+    <ClCompile Include="Libraries\distorm\src\prefix.c" />
+    <ClCompile Include="Libraries\distorm\src\textdefs.c" />
+    <ClCompile Include="Libraries\distorm\src\wstring.c" />
     <ClCompile Include="NativeHashFunctionFinder.cpp">
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">ProgramDatabase</DebugInformationFormat>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -169,7 +175,28 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Libraries\distorm\include\distorm.h" />
+    <ClInclude Include="Libraries\distorm\include\mnemonics.h" />
+    <ClInclude Include="Libraries\distorm\src\config.h" />
+    <ClInclude Include="Libraries\distorm\src\decoder.h" />
+    <ClInclude Include="Libraries\distorm\src\instructions.h" />
+    <ClInclude Include="Libraries\distorm\src\insts.h" />
+    <ClInclude Include="Libraries\distorm\src\operands.h" />
+    <ClInclude Include="Libraries\distorm\src\prefix.h" />
+    <ClInclude Include="Libraries\distorm\src\textdefs.h" />
+    <ClInclude Include="Libraries\distorm\src\wstring.h" />
+    <ClInclude Include="Libraries\distorm\src\x86defs.h" />
     <ClInclude Include="natives.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Libraries\distorm\COPYING" />
+    <None Include="Libraries\distorm\distorm3.dll" />
+    <None Include="Libraries\distorm\distorm3.exp" />
+    <None Include="Libraries\distorm\README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="Libraries\distorm\distorm.lib" />
+    <Library Include="Libraries\distorm\distorm3.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
