@@ -44,10 +44,10 @@
 #include <time.h>
 #include <SDKDDKVer.h>
 #define SUPPORT_64BIT_OFFSET
-#include "../../../Libraries/distorm/examples/win32/dis64.h"
+#include "Libraries\distorm\include\distorm.h"
 #include "natives.h"
-#pragma comment(lib, "../../../Libraries/distorm/distorm.lib")
-// Useful references: http://atom0s.com/forums/viewtopic.php?f=5&t=4&sid=4c99acd92ec8836e72d6740c9dad02ca
+#pragma comment(lib, "Libraries/distorm/distorm.lib")
+// Useful references for future development: http://atom0s.com/forums/viewtopic.php?f=5&t=4&sid=4c99acd92ec8836e72d6740c9dad02ca
 
 HANDLE hProcess;
 
