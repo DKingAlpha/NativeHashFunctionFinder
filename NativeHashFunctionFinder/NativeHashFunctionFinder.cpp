@@ -452,10 +452,14 @@ int getNativeFunction(__int64 hash, char* name)
 								//             |------------- 12 bytes ----------|             |---------------- - 13 bytes---------|
 								//	Signature: 48 8D 64 24 F8 48 89 2C 24 48 8D 2D ?? ?? ?? ?? 48 87 2C 24 48 8D 64 24 08 FF 64 24 F8 (29 bytes)
 								//	Translate: 90 90 90 90 90 90 90 90 90 90 90 E9 ?? ?? ?? ?? 90 90 90 90 90 90 90 90 90 90 90 90 90
-								std::fill(data.begin() + loc, data.begin() + loc + 4 + 8 - 1, 0x90);
-								data[loc + 4 + 8 - 1] = 0xE9;
+								//             |------------- 11 bytes--------| |-- 5 bytes--|      
+								
+								std::fill(data.begin() + loc, data.begin() + loc + 11, 0x90);
+								std::fill(data.begin() + loc + 11 + 5, data.begin() + loc + 11 + 5 + 13, 0x90);
+								data[loc + 11] = 0xE9;
+
+
 								// No need to fill trailing NOPs in, since the code will JMP at that point, but maybe for neatness.
-								// std::fill(data.begin() + loc + 12 + 4, data.begin() + loc + 12 + 4 + 4, 0x90);
 								
 								// (How to turn a vector into an array)
 								// unsigned char* a = &v[0];
