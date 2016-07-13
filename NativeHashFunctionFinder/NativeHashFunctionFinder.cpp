@@ -44,8 +44,9 @@
 #include <time.h>
 #include <SDKDDKVer.h>
 #define SUPPORT_64BIT_OFFSET
-#include "Libraries\distorm\include\distorm.h"
+#include "Libraries/distorm/include/distorm.h"
 #include "natives.h"
+#include "../MemoryLib/MemoryLib.h"
 #pragma comment(lib, "Libraries/distorm/distorm.lib")
 // Useful references for future development: http://atom0s.com/forums/viewtopic.php?f=5&t=4&sid=4c99acd92ec8836e72d6740c9dad02ca
 
@@ -395,6 +396,7 @@ int getNativeFunction(__int64 hash, char* name)
 			auto isWritable = ((mbi.Protect & PAGE_READWRITE) != 0 || (mbi.Protect & PAGE_WRITECOPY) != 0 || (mbi.Protect & PAGE_EXECUTE_READWRITE) != 0 || (mbi.Protect & PAGE_EXECUTE_WRITECOPY) != 0);
 
 			// Dump the region into a memory block.. 
+			// TODO: Have it read directly into a vector
 			auto dump = new unsigned char[mbi.RegionSize + 1];
 			memset(dump, 0x00, mbi.RegionSize + 1);
 
@@ -403,6 +405,9 @@ int getNativeFunction(__int64 hash, char* name)
 				ErrorExit(TEXT("ReadProcessMemory")); // "Failed to read memory of location : %08X\n", mbi.BaseAddress);
 
 			__int64 Address = (__int64)mbi.BaseAddress;
+
+			
+#if 1
 			for (SIZE_T x = 0; x < mbi.RegionSize - 8; x += 4, Address += 4)
 			{
 				if (*(__int64*)(dump + x) == hash) 
@@ -437,6 +442,34 @@ int getNativeFunction(__int64 hash, char* name)
 						
 						while (true) {
 							buf = (unsigned char *)ReadMemory((void *)result, bufLen);
+
+							std::vector<unsigned char> data(buf, buf + bufLen);
+							// C++11 version: (still leaves us with that extra byte we allocated at the end though
+							// std::vector<unsigned char> data(std::begin(dump), std::end(dump));
+
+							__int64 Found = MemoryLib::Memory::FindPattern(data, "48 8D 64 24 F8 48 89 2C 24 48 8D 2D ?? ?? ?? ?? 48 87 2C 24 48 8D 64 24 08 FF 64 24 F8", 0, 0, -1, [&](intptr_t loc)
+							{
+								//             |------------- 12 bytes ----------|             |---------------- - 13 bytes---------|
+								//	Signature: 48 8D 64 24 F8 48 89 2C 24 48 8D 2D ?? ?? ?? ?? 48 87 2C 24 48 8D 64 24 08 FF 64 24 F8 (29 bytes)
+								//	Translate: 90 90 90 90 90 90 90 90 90 90 90 E9 ?? ?? ?? ?? 90 90 90 90 90 90 90 90 90 90 90 90 90
+								std::fill(data.begin() + loc, data.begin() + loc + 4 + 8 - 1, 0x90);
+								data[loc + 4 + 8 - 1] = 0xE9;
+								// No need to fill trailing NOPs in, since the code will JMP at that point, but maybe for neatness.
+								// std::fill(data.begin() + loc + 12 + 4, data.begin() + loc + 12 + 4 + 4, 0x90);
+								
+								// (How to turn a vector into an array)
+								// unsigned char* a = &v[0];
+								//     or 
+								// unsigned char arr[100];
+								// std::copy(v.begin(), v.end(), arr);
+							});
+							
+							if (Found < -1) {
+								std::copy(data.begin(), data.end(), buf);
+							}
+
+
+
 							jmpLocation = RecurseJumps(buf, (int)bufLen, result);
 							if (jmpLocation > 0xff) {
 								dis64(buf, 5, result);
@@ -453,6 +486,7 @@ int getNativeFunction(__int64 hash, char* name)
 					found++;
 				}
 			}
+#endif
 
 			// Cleanup the memory dump.. 
 			delete[] dump;
