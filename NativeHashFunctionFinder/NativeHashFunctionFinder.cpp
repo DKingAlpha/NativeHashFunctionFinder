@@ -132,6 +132,7 @@ void* ReadMemory(LPCVOID lpBaseAddress, SIZE_T bufLen = 1024) {
 // LPVOID RecurseJumps(LPVOID buf, DWORD64 &address)
 DWORD64 RecurseJumps(unsigned char *memory, int len, _OffsetType offset)
 {
+	
 	/*
 	Call Instructions
 	Hex	Mnemonic	Enc	LongMd	LegacyM	Description
@@ -174,10 +175,17 @@ DWORD64 RecurseJumps(unsigned char *memory, int len, _OffsetType offset)
 	*/
 	LPBYTE pByte = reinterpret_cast<LPBYTE>(memory);
 
-	// TODO
-	// 00007ff7498fcd8e (04) ff6424f8                 JMP QWORD [RSP-0x8]
+	// NOP skipping
+	
+	_OffsetType dest = offset;
+	while (*pByte == 0x90 && len > 0) {
+		pByte++;
+		dest++;
+		len--;
+		printf("NOPSKIP\n");
+	}
 
-	// Absolute
+	// Absolute JMP
 	if(*pByte == 0xFF && *(pByte + 1) == 0x25)
 	{
 		LPVOID pDest = nullptr;
@@ -203,7 +211,7 @@ DWORD64 RecurseJumps(unsigned char *memory, int len, _OffsetType offset)
 	else if(*pByte == 0x48 && *(pByte + 1) == 0xFF)
 	{
 		// Absolute Indirect
-		return 1;
+		return 1; // TODO
 	}
 	else if(*pByte == 0xE9)
 	{
@@ -215,10 +223,9 @@ DWORD64 RecurseJumps(unsigned char *memory, int len, _OffsetType offset)
 		// DWORD_PTR base = (DWORD_PTR)address & 0xffffffff00000000;
 		auto jmpOffset = *reinterpret_cast<long near *>(pByte + 1); 		// jump offset (JMP 0x0FF5ET00) 
 		jmpOffset += 5; // 0xE9 ?? ?? ?? ??
-		_OffsetType dest = offset;
 		dest += jmpOffset;
 
-		return dest;
+		return dest; // This one we did
 
 
 		/*
@@ -447,19 +454,28 @@ int getNativeFunction(__int64 hash, char* name)
 							// C++11 version: (still leaves us with that extra byte we allocated at the end though
 							// std::vector<unsigned char> data(std::begin(dump), std::end(dump));
 
-							__int64 Found = MemoryLib::Memory::FindPattern(data, "48 8D 64 24 F8 48 89 2C 24 48 8D 2D ?? ?? ?? ?? 48 87 2C 24 48 8D 64 24 08 FF 64 24 F8", 0, 0, -1, [&](intptr_t loc)
+							//                                                             
+							//             |------------- 11 bytes--------| |-- 5 bytes--| |---------------- - 13 bytes---------|     
+							//	Signature: 48 8D 64 24 F8 48 89 2C 24 48 8D 2D ?? ?? ?? ?? 48 87 2C 24 48 8D 64 24 08 FF 64 24 F8 (29 bytes)
+							//	Translate: 90 90 90 90 90 90 90 90 90 90 90 E9 ?? ?? ?? ?? 90 90 90 90 90 90 90 90 90 90 90 90 90
+							
+							//             |------------- 12 bytes ----------| |-- 5 bytes--| |---------------- - 13 bytes---------|
+							//  Signature: 48 89 6c 24 f8 48 8d 64 24 f8 48 8d 2d ?? ?? ?? ?? 48 87 2c 24 48 8d 64 24 08 ff 64 24 f8 (30 bytes)
+							//  Translate: 90 90 90 90 90 90 90 90 90 90 90 90 e9 ?? ?? ?? ?? 90 90 90 90 90 90 90 90 90 90 90 90 90
+							//
+							__int64 Found = 0;
+							Found += MemoryLib::Memory::FindPattern(data, "48 8D 64 24 F8 48 89 2C 24 48 8D 2D ?? ?? ?? ?? 48 87 2C 24 48 8D 64 24 08 FF 64 24 F8", 0, 0, -1, [&](intptr_t loc)
 							{
-								//             |------------- 12 bytes ----------|             |---------------- - 13 bytes---------|
-								//	Signature: 48 8D 64 24 F8 48 89 2C 24 48 8D 2D ?? ?? ?? ?? 48 87 2C 24 48 8D 64 24 08 FF 64 24 F8 (29 bytes)
-								//	Translate: 90 90 90 90 90 90 90 90 90 90 90 E9 ?? ?? ?? ?? 90 90 90 90 90 90 90 90 90 90 90 90 90
-								//             |------------- 11 bytes--------| |-- 5 bytes--|      
 								
 								std::fill(data.begin() + loc, data.begin() + loc + 11, 0x90);
 								std::fill(data.begin() + loc + 11 + 5, data.begin() + loc + 11 + 5 + 13, 0x90);
 								data[loc + 11] = 0xE9;
 
+								// We should be un-lazy, and move the JMP 11 bytes back (up? down? left?) whilst decrementing the 
+								// target by 11 (or maybe incrementing it, that sounds more right).
+								// We can read the value in (endian-wise) with auto jmpOffset = *reinterpret_cast<long near *>(data[12])
+								// or something.
 
-								// No need to fill trailing NOPs in, since the code will JMP at that point, but maybe for neatness.
 								
 								// (How to turn a vector into an array)
 								// unsigned char* a = &v[0];
@@ -467,12 +483,17 @@ int getNativeFunction(__int64 hash, char* name)
 								// unsigned char arr[100];
 								// std::copy(v.begin(), v.end(), arr);
 							});
+							Found += MemoryLib::Memory::FindPattern(data, "48 89 6c 24 f8 48 8d 64 24 f8 48 8d 2d ?? ?? ?? ?? 48 87 2c 24 48 8d 64 24 08 ff 64 24 f8", 0, 0, -1, [&](intptr_t loc)
+							{
+								std::fill(data.begin() + loc, data.begin() + loc + 12, 0x90);
+								std::fill(data.begin() + loc + 12 + 5, data.begin() + loc + 12 + 5 + 13, 0x90);
+								data[loc + 12] = 0xE9;
+							});
+
 							
-							if (Found < -1) {
+							if (Found < -2) {
 								std::copy(data.begin(), data.end(), buf);
 							}
-
-
 
 							jmpLocation = RecurseJumps(buf, (int)bufLen, result);
 							if (jmpLocation > 0xff) {
