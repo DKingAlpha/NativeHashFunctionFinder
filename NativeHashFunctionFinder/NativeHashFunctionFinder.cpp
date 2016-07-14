@@ -132,7 +132,20 @@ void* ReadMemory(LPCVOID lpBaseAddress, SIZE_T bufLen = 1024) {
 // LPVOID RecurseJumps(LPVOID buf, DWORD64 &address)
 DWORD64 RecurseJumps(unsigned char *memory, int len, _OffsetType offset)
 {
+	/* NOTE: If we ever have to encode > 32bit signed jumps, here's a slightly nicer way to do it
 	
+		Jmp [addresswithlocation+1] 
+		Addresswithlocation: 
+		db b8                  
+		Dq destination 
+
+		Because it would decompile as:
+
+		Code:
+
+		jmp qword ptr [31D10010]
+		mov rax, 140270459                       // address = 31D1000F
+	*/
 	/*
 	Call Instructions
 	Hex	Mnemonic	Enc	LongMd	LegacyM	Description
