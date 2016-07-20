@@ -51,6 +51,18 @@
     <ClInclude Include="Libraries\distorm\src\x86defs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="NativeHashFunctionFinder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Flow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MemoryShim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NativeDumpFile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="NativeHashFunctionFinder.cpp">

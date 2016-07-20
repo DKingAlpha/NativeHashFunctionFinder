@@ -42,7 +42,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -176,6 +176,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Flow.h" />
     <ClInclude Include="Libraries\distorm\include\distorm.h" />
     <ClInclude Include="Libraries\distorm\include\mnemonics.h" />
     <ClInclude Include="Libraries\distorm\src\config.h" />
@@ -187,7 +188,10 @@
     <ClInclude Include="Libraries\distorm\src\textdefs.h" />
     <ClInclude Include="Libraries\distorm\src\wstring.h" />
     <ClInclude Include="Libraries\distorm\src\x86defs.h" />
+    <ClInclude Include="MemoryShim.h" />
+    <ClInclude Include="NativeHashFunctionFinder.h" />
     <ClInclude Include="natives.h" />
+    <ClInclude Include="NativeDumpFile.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Libraries\distorm\COPYING" />

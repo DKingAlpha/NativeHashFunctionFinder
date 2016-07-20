@@ -250,3 +250,8 @@ ModelManifest.xml
 .fake/
 /Sample
 /SignatureScanner
+/NativeHashFunctionFinder/nativeDumpFile.bin
+/NativeHashFunctionFinder/tags
+/NativeHashFunctionFinder.b757.de-obsfucated-method-1-and-2.txt
+/NativeHashFunctionFinder/Deobfu.cpp
+/NativeHashFunctionFinder/RecurseJumps.cpp

@@ -30,25 +30,54 @@
  */
 
 #pragma warning(disable:4996)
-#include <algorithm>
+#define PSAPI_VERSION 1
+#define SUPPORT_64BIT_OFFSET
+#define DEOBFU
+
 #include <windows.h>
-#include <psapi.h>
 #include <stdio.h>
-#include <TlHelp32.h>
-#include <vector>
 #include <stdlib.h>
 #include <string>
-#include <thread>
 #include <tchar.h>
 #include <strsafe.h>
+#include <thread>
 #include <time.h>
+#include <vector>
 #include <SDKDDKVer.h>
-#define SUPPORT_64BIT_OFFSET
+#include <TlHelp32.h>
+#include <algorithm>
+#include <psapi.h>
 #include "Libraries/distorm/include/distorm.h"
+#include "Libraries/distorm/include/mnemonics.h"
 #include "natives.h"
 #include "../MemoryLib/MemoryLib.h"
+#include "NativeHashFunctionFinder.h"
+#include "Flow.h"
+#include "MemoryShim.h"
+#include "NativeDumpFile.h"
+#pragma comment(lib, "psapi.lib")
 #pragma comment(lib, "Libraries/distorm/distorm.lib")
 // Useful references for future development: http://atom0s.com/forums/viewtopic.php?f=5&t=4&sid=4c99acd92ec8836e72d6740c9dad02ca
+/*
+   Base Address:
+   
+   7FF79AB3F785 - 9DF785 = 7FF79A160000
+   7FF79AB3F785 + ffffffffff62087b = 7FF79A160000
+
+   7FF79AB3F77E - 48 8D 15 7B0862FF     - lea rdx,[rip+0xffffffffff62087b] or RIP - 10352517 or RIP - 0x9DF785
+   7FF79AB3F785 - 48 63 C1              - movsxd  rax,ecx
+   7FF79AB3F788 - 48 8B 8C C2 A011B802  - mov    rcx,QWORD PTR [rdx+rax*8+0x2b811a0]
+   7FF79AB3F790 - 48 85 C9              - test rcx,rcx
+   7FF79AB3F793 - 74 19                 - je 7FF79AB3F7AE
+
+   48 8D 15 7B 08 62 FF 48 63 C1
+   48 8B 8C C2 A0 11 B8 02 48 85 C9 74 19
+
+   BaseAddress: 48 8D 15 ?? ?? ?? ?? 48 63 C1 48 8B 8C C2 ?? ?? ?? ?? 48 85 C9 74 19
+   GetPointerAddressA:                        48 8B 8C C2 ?? ?? ?? ?? 48 85 C9 74 19
+
+*/
+
 
 HANDLE hProcess;
 
@@ -85,6 +114,33 @@ void ErrorExit(LPTSTR lpszFunction)
 }
 
 
+
+// To ensure correct resolution of symbols, add Psapi.lib to TARGETLIBS
+
+__int64 GetBaseAddress(DWORD processId)
+{
+	TCHAR szProcessName[MAX_PATH] = TEXT("<unknown>");
+
+	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
+		PROCESS_VM_READ,
+		FALSE, processId);
+
+	if (NULL != hProcess)
+	{
+		HMODULE hMod;
+		DWORD cbNeeded;
+
+		if (EnumProcessModulesEx(hProcess, &hMod, sizeof(hMod),
+			&cbNeeded, LIST_MODULES_32BIT | LIST_MODULES_64BIT))
+		{
+			return (__int64)hMod;
+		}
+	}
+
+	CloseHandle(hProcess);
+	return 0;
+}
+
 DWORD GetProcessByName(WCHAR* name)
 {
 	DWORD pid = 0;
@@ -117,8 +173,9 @@ DWORD GetProcessByName(WCHAR* name)
 }
 
 
-void* ReadMemory(LPCVOID lpBaseAddress, SIZE_T bufLen = 1024) {
+void* ReadMemory(LPCVOID lpBaseAddress, SIZE_T bufLen = 128) {
 	static unsigned char* buf = new unsigned char[bufLen];
+	static vector<unsigned char> vectorBuf;
 	SIZE_T nRead = 0;
 	// SIZE_T bufLen = 0x32;
 	if (!ReadProcessMemory(hProcess, lpBaseAddress, buf, bufLen, &nRead))
@@ -127,191 +184,61 @@ void* ReadMemory(LPCVOID lpBaseAddress, SIZE_T bufLen = 1024) {
 	return buf;
 }
 
-// Link the library into our project.
-
-// LPVOID RecurseJumps(LPVOID buf, DWORD64 &address)
-DWORD64 RecurseJumps(unsigned char *memory, int len, _OffsetType offset)
-{
-	/* NOTE: If we ever have to encode > 32bit signed jumps, here's a slightly nicer way to do it
-	
-		Jmp [addresswithlocation+1] 
-		Addresswithlocation: 
-		db b8                  
-		Dq destination 
-
-		Because it would decompile as:
-
-		Code:
-
-		jmp qword ptr [31D10010]
-		mov rax, 140270459                       // address = 31D1000F
-	*/
-	/*
-	Call Instructions
-	Hex	Mnemonic	Enc	LongMd	LegacyM	Description
-	FF /3	CALL m16:32	B	Valid	Valid	In 64-bit mode: If selector points to a gate, then RIP = 64-bit displacement taken from gate; else RIP = zero extended 32-bit offset from far pointer referenced in the instruction.
-	FF /3	CALL m16:16	B	Valid	Valid	Call far, absolute indirect address given in m16:16. In 32-bit mode: if selector points to a gate, then RIP = 32-bit zero extended displacement taken from gate; else RIP = zero extended 16-bit offset from far pointer referenced in the instruction.
-	9A cp	CALL ptr16:32	A	Invalid	Valid	Call far, absolute, address given in operand.
-	9A cd	CALL ptr16:16	A	Invalid	Valid	Call far, absolute, address given in operand.
-	FF /2	CALL r/m64	B	Valid	N.E.	Call near, absolute indirect, address given in r/m64.
-	FF /2	CALL r/m32	B	N.E.	Valid	Call near, absolute indirect, address given in r/m32.
-	FF /2	CALL r/m16	B	N.E.	Valid	Call near, absolute indirect, address given in r/m16.
-	E8 cd	CALL rel32	B	Valid	Valid	Call near, relative, displacement relative to next instruction. 32-bit displacement sign extended to 64-bits in 64-bit mode.
-	E8 cw	CALL rel16	B	N.S.	Valid	Call near, relative, displacement relative to next instruction.
-	*/
-	/* Jump Instructions
-	EB       cb JMP rel8     D Valid Valid Jump short, relative,          RIP = RIP + 8-bit displacement sign extended to 64-bits
-	E9 XX    cw JMP rel16    D N.S.  Valid Jump near,  relative,          displacement relative to next instruction. Not supported in 64-bit mode.
-	E9       cd JMP rel32    D Valid Valid Jump near,  relative,          RIP = RIP + 32-bit displacement sign extended to 64-bits
-	FF XX    /4 JMP r/m16    M N.S.  Valid Jump near,  absolute indirect, address = zeroextended r/m16. Not supported in 64-bit mode.
-	FF XX    /4 JMP r/m32    M N.S.  Valid Jump near,  absolute indirect, address given in r/m32. Not supported in 64-bit mode.
-	FF       /4 JMP r/m64    M Valid N.E.  Jump near,  absolute indirect, RIP = 64-Bit offset from register or memory
-	EA       cd JMP ptr16:16 D Inv.  Valid Jump far,   absolute,          address given in operand
-	EA       cp JMP ptr16:32 D Inv.  Valid Jump far,   absolute,          address given in operand
-	FF       /5 JMP m16:16   D Valid Valid Jump far,   absolute indirect, address given in m16:16
-	FF       /5 JMP m16:32   D Valid Valid Jump far,   absolute indirect, address given in m16:32.
-	REX.W+FF /5 JMP m16:64   D Valid N.E.  Jump far,   absolute indirect, address given in m16:64.
-	*/
-
-	/*
-	Table 2-4. REX Prefix Fields [BITS: 0100WRXB]
-	=============================================
-
-	Field_Name Bit_Position Definition
-	---------- ------------ ----------
-	-          7:4          0100
-	W          3            0 = Operand size determined by CS.D
-							1 = 64 Bit Operand Size
-	R          2            Extension of the ModR/M reg field
-	X          1            Extension of the SIB index field
-	B          0            Extension of the ModR/M r/m field, SIB base field, or Opcode reg field
-	*/
-	LPBYTE pByte = reinterpret_cast<LPBYTE>(memory);
-
-	// NOP skipping
-	
-	_OffsetType dest = offset;
-	while (*pByte == 0x90 && len > 0) {
-		pByte++;
-		dest++;
-		len--;
-		printf("NOPSKIP\n");
-	}
-
-	// Absolute JMP
-	if(*pByte == 0xFF && *(pByte + 1) == 0x25)
-	{
-		LPVOID pDest = nullptr;
-
-		#ifdef _M_IX86
-			pDest = **reinterpret_cast<LPVOID**>( pByte + 2 );
-		#else
-		if(*reinterpret_cast<DWORD*>(pByte + 2) != 0)
-		{
-			pDest = *reinterpret_cast<LPVOID**>( pByte + *reinterpret_cast<PDWORD>(pByte + 2) + 6 );
-		}
-		else
-		{
-			pDest = *reinterpret_cast<LPVOID**>( pByte + 6 );
-		}
-		#endif
-
-		// return RecurseJumps(pDest);
-		return 1; // TODO
-	}
-
-	
-	else if(*pByte == 0x48 && *(pByte + 1) == 0xFF)
-	{
-		// Absolute Indirect
-		return 1; // TODO
-	}
-	else if(*pByte == 0xE9)
-	{
-		LPVOID pDest = nullptr;
-
-	#ifdef _M_IX86
-		pDest = reinterpret_cast<LPVOID>( *reinterpret_cast<PDWORD>(pByte + 1) + reinterpret_cast<DWORD>(pByte) + relativeJmpSize );
-	#else
-		// DWORD_PTR base = (DWORD_PTR)address & 0xffffffff00000000;
-		auto jmpOffset = *reinterpret_cast<long near *>(pByte + 1); 		// jump offset (JMP 0x0FF5ET00) 
-		jmpOffset += 5; // 0xE9 ?? ?? ?? ??
-		dest += jmpOffset;
-
-		return dest; // This one we did
-
-
-		/*
-		 * pDest = reinterpret_cast<LPVOID>( 
-		 *             * reinterpret_cast<PDWORD>(pByte + 1) 		// jump offset (JMP 0x0FF5ET00) 
-		 *             + reinterpret_cast<DWORD>(pByte)      		// + memory location of jmp instruction 
-		 *             + 5  	// add bytes to get to RIP of next instruction (where offset is calculated from)
-		 *             + (reinterpret_cast<DWORD_PTR>(GetModuleHandle(NULL)) & 0xFFFFFFFF00000000) 
-		 *                     // giving us an absolute memory location for the jmp target
-		 *         );
-		 */
-	#endif
-
-		// return RecurseJumps(pDest);
-	}
-
-	// Relative Short (invalid for x64)
-	else if(*pByte == 0xEB)
-	{
-		BYTE offset = *(pByte + 1);
-
-		// Jmp forwards
-		if(offset > 0x00 && offset <= 0x7F)
-		{
-			LPVOID pDest = reinterpret_cast<LPVOID>( pByte + 2 + offset );
-			// return RecurseJumps(pDest);
-		}
-
-		// Jmp backwards
-		else if(offset > 0x80 && offset <= 0xFF) // tbh none should be > FD
-		{
-			offset = -abs(offset);
-			LPVOID pDest = reinterpret_cast<LPVOID>( pByte + 2 - offset );
-			// return RecurseJumps(pDest);
-		}
-	}
-
-	return 0;
-}
-
 // The number of the array of instructions the decoder function will use to return the disassembled instructions.
 // Play with this value for performance...
 #define MAX_INSTRUCTIONS (1000)
+Flow flow;
 
-int dis64(unsigned char *memory, int len, _OffsetType offset)
+int dis64(MemoryShim memory, int len, _OffsetType offset)
 {
-	// Version of used compiled library.
-	// Holds the result of the decoding.
-	_DecodeResult res;
-	// Decoded instruction information.
-	_DecodedInst decodedInstructions[MAX_INSTRUCTIONS];
-	// next is used for instruction's offset synchronization.
-	// decodedInstructionsCount holds the count of filled instructions' array by the decoder.
-	unsigned int decodedInstructionsCount = 0, i, next;
 
-	// Default decoding mode is 32 bits, could be set by command line.
-	_DecodeType dt = Decode64Bits;
+	_DInst di[40];
+	unsigned int instructions_count = 0;
+	_DecodedInst inst;
 
-	// Default offset for buffer is 0, could be set in command line.
-	// _OffsetType offset = 0;
-	char* errch = NULL;
+	_CodeInfo ci = {0};
+	ci.code = memory.memoryAsBuffer();
+	ci.codeLen = len;
+	ci.codeOffset = offset;
+	ci.dt = Decode64Bits;
+	ci.features = DF_STOP_ON_FLOW_CONTROL & ~(DF_STOP_ON_CND_BRANCH | DF_STOP_ON_CMOV);
+	
+	flow.contents.clear();
+	distorm_decompose(&ci, di, sizeof(di)/sizeof(di[0]), &instructions_count);
 
-	// Index to file name in argv.
-	int param = 1;
+	// well, if instruction_count == 0, we won't enter the loop.
+	for (unsigned int i = 0; i < instructions_count; i++) {
+		if (di[i].flags == FLAG_NOT_DECODABLE) {
+			printf("distorm: FLAG_NOT_DECODABLE\n");
+			// handle instruction error!
+			break;
+		}
+		// for (i = 0; i < di->size; i++) str_hex_b(str, ci->code[(unsigned int)(di->addr - ci->codeOffset + i)]);
+		distorm_format(&ci, &di[i], &inst);
 
+		if (di[i].opcode != I_JMP) {
+			for (int j = 0; j < di[i].size; ++j) {
+				flow.push_back(inst.offset + j, ci.code[(unsigned int)(di[i].addr - ci.codeOffset + j)]);
+			}
+		}
+		// printf("%s %s\n", inst.mnemonic.p, inst.operands.p);
+		printf("%0*I64x (%02d) %-24s %s%s%s\n",
+			 ci.dt != Decode64Bits ? 8 : 16,
+			 inst.offset,
+			 inst.size,
+			 (char*)inst.instructionHex.p,
+			 (char*)inst.mnemonic.p,
+			 inst.operands.length != 0 ? " " : "",
+			 (char*)inst.operands.p);
+	}
+
+#if  0
 	// Handling file.
 	DWORD filesize, bytesread;
 
 	// Buffer to disassemble.
 	unsigned char *buf, *buf2;
 
-	// Disassembler version.
-	// offset = strtoul(argv[param + 1], &errch, 16);
 
 	buf2 = buf = (unsigned char*)memory;
 	filesize = bytesread = len;
@@ -362,16 +289,17 @@ int dis64(unsigned char *memory, int len, _OffsetType offset)
 	}
 
 	// Release buffer
-
+#endif
 
 	return 0;
 }
 
+#ifdef MAKE_NATIVE_DUMP_FILE
+NativeDumpFile nativeDumpFile;
+#endif
 
-// This is going to be terribly ineffecient, and just start the whole thing off from the start every time.
-int getNativeFunction(__int64 hash, char* name)
-{
-	// hash = 0xC834A7C58DEB59B4;
+SYSTEM_INFO si;
+int setupProcess() {
 
 	DWORD PPID = GetProcessByName(TEXT("GTA5"));
 	if (!PPID) {
@@ -382,21 +310,31 @@ int getNativeFunction(__int64 hash, char* name)
 		printf("Found GTA5.exe, PID: %lu\n", PPID);
 	}
 
-	SYSTEM_INFO si;
 	ZeroMemory(&si, sizeof(SYSTEM_INFO));
 	GetSystemInfo(&si);
 	hProcess = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, PPID);
 	if (!hProcess) 
 		ErrorExit(TEXT("OpenProcess"));
+	return 1;
+}
+
+// This is going to be terribly ineffecient, and just start the whole thing off from the start every time.
+int getNativeFunction(__int64 hash, char* name)
+{
+	// hash = 0xC834A7C58DEB59B4;
+
 	
 	printf("Scanning process for %s hash 0x%016llx\n\n", name, hash);
 	auto addr_min = (__int64)si.lpMinimumApplicationAddress;
 	auto addr_max = (__int64)si.lpMaximumApplicationAddress;
+	static auto min_found = addr_max;
 
 	auto found = 0;
-
+	// addr_min = 0x20fb194c000;
+	// 20FB2c68000
+	// 27f92213338
 	// Loop the pages of memory of the application.. 
-	while (addr_min < addr_max)
+	while (addr_min < addr_max && !found)
 	{
 		MEMORY_BASIC_INFORMATION mbi = { 0 };
 		if (!VirtualQueryEx(hProcess, (LPCVOID)addr_min, &mbi, sizeof(mbi)))
@@ -420,7 +358,7 @@ int getNativeFunction(__int64 hash, char* name)
 			auto dump = new unsigned char[mbi.RegionSize + 1];
 			memset(dump, 0x00, mbi.RegionSize + 1);
 
-			printf("\r0x%llx: %04x", (__int64)mbi.BaseAddress, mbi.Protect); // mbi.Protect & 0x100);
+			// printf("\r0x%llx: %04x", (__int64)mbi.BaseAddress, mbi.Protect); // mbi.Protect & 0x100);
 			if (!ReadProcessMemory(hProcess, mbi.BaseAddress, dump, mbi.RegionSize, NULL))
 				ErrorExit(TEXT("ReadProcessMemory")); // "Failed to read memory of location : %08X\n", mbi.BaseAddress);
 
@@ -432,12 +370,22 @@ int getNativeFunction(__int64 hash, char* name)
 			{
 				if (*(__int64*)(dump + x) == hash) 
 				{
+					found++;
 					// Address == ((__int64)mbi.BaseAddress + x)
-					printf_s("\nFound hash at address: 0x%12llx\n", Address);
+					if (Address < min_found) {
+						min_found = Address;
+					}
+					printf_s("\nFound hash at address: 0x%12llx (lowest address: 0x%12llx )\n", Address, min_found);
 					if (x >= 0x40) {
-						__int64 result = *(__int64*)(dump + x - 0x40);
+						__int64 offset = *(__int64*)(dump + x - 0x40);
 						printf_s("Pointer to Native Function is at: 0x%12llx\n", Address - 0x40);
-						printf_s("Native Function Address: 0x %12llx\n", result);
+						printf_s("Native Function Address: 0x %12llx\n", offset);
+						if (!offset) break;
+#ifdef MAKE_NATIVE_DUMP_FILE
+						nativeDumpFile.natives[nativeDumpFile.native_count].hash = hash;
+						nativeDumpFile.natives[nativeDumpFile.native_count].func_offset = offset; /*  - 0x7FF79A160000 + 0x140000000; */
+						nativeDumpFile.native_count++;
+#endif
 						/*
 						BOOL WINAPI ReadProcessMemory(
 						  _In_  HANDLE  hProcess,
@@ -452,77 +400,33 @@ int getNativeFunction(__int64 hash, char* name)
                          * x32;
 						 * unsigned char* buf = new unsigned char[bufLen];
 						 * printf("Attempting to read native function memory...\n");
-						 * if (!ReadProcessMemory(hProcess, (void *)result, buf, bufLen, &nRead))
+						 * if (!ReadProcessMemory(hProcess, (void *)offset, buf, bufLen, &nRead))
 						 *     ErrorExit(TEXT("ReadProcessMemory"));
 						 */
-
+#ifdef DEOBFU
 						int bufLen = 128;
 						DWORD64 jmpLocation = 0;
 						unsigned char *buf;
+						MemoryShim memory;
+						memory.setAutoLoader([&](intptr_t offset) {
+							unsigned char *buf = (unsigned char *)ReadMemory((void *)offset, bufLen);
+							return std::vector<unsigned char>(buf, buf+bufLen);
+						});
 						
 						while (true) {
-							buf = (unsigned char *)ReadMemory((void *)result, bufLen);
-
-							std::vector<unsigned char> data(buf, buf + bufLen);
-							// C++11 version: (still leaves us with that extra byte we allocated at the end though
-							// std::vector<unsigned char> data(std::begin(dump), std::end(dump));
-
-							//                                                             
-							//             |------------- 11 bytes--------| |-- 5 bytes--| |---------------- - 13 bytes---------|     
-							//	Signature: 48 8D 64 24 F8 48 89 2C 24 48 8D 2D ?? ?? ?? ?? 48 87 2C 24 48 8D 64 24 08 FF 64 24 F8 (29 bytes)
-							//	Translate: 90 90 90 90 90 90 90 90 90 90 90 E9 ?? ?? ?? ?? 90 90 90 90 90 90 90 90 90 90 90 90 90
-							
-							//             |------------- 12 bytes ----------| |-- 5 bytes--| |---------------- - 13 bytes---------|
-							//  Signature: 48 89 6c 24 f8 48 8d 64 24 f8 48 8d 2d ?? ?? ?? ?? 48 87 2c 24 48 8d 64 24 08 ff 64 24 f8 (30 bytes)
-							//  Translate: 90 90 90 90 90 90 90 90 90 90 90 90 e9 ?? ?? ?? ?? 90 90 90 90 90 90 90 90 90 90 90 90 90
-							//
-							__int64 Found = 0;
-							Found += MemoryLib::Memory::FindPattern(data, "48 8D 64 24 F8 48 89 2C 24 48 8D 2D ?? ?? ?? ?? 48 87 2C 24 48 8D 64 24 08 FF 64 24 F8", 0, 0, -1, [&](intptr_t loc)
-							{
-								
-								std::fill(data.begin() + loc, data.begin() + loc + 11, 0x90);
-								std::fill(data.begin() + loc + 11 + 5, data.begin() + loc + 11 + 5 + 13, 0x90);
-								data[loc + 11] = 0xE9;
-
-								// We should be un-lazy, and move the JMP 11 bytes back (up? down? left?) whilst decrementing the 
-								// target by 11 (or maybe incrementing it, that sounds more right).
-								// We can read the value in (endian-wise) with auto jmpOffset = *reinterpret_cast<long near *>(data[12])
-								// or something.
-
-								
-								// (How to turn a vector into an array)
-								// unsigned char* a = &v[0];
-								//     or 
-								// unsigned char arr[100];
-								// std::copy(v.begin(), v.end(), arr);
-							});
-							Found += MemoryLib::Memory::FindPattern(data, "48 89 6c 24 f8 48 8d 64 24 f8 48 8d 2d ?? ?? ?? ?? 48 87 2c 24 48 8d 64 24 08 ff 64 24 f8", 0, 0, -1, [&](intptr_t loc)
-							{
-								std::fill(data.begin() + loc, data.begin() + loc + 12, 0x90);
-								std::fill(data.begin() + loc + 12 + 5, data.begin() + loc + 12 + 5 + 13, 0x90);
-								data[loc + 12] = 0xE9;
-							});
-
-							
-							if (Found < -2) {
-								std::copy(data.begin(), data.end(), buf);
-							}
-
-							jmpLocation = RecurseJumps(buf, (int)bufLen, result);
-							if (jmpLocation > 0xff) {
-								dis64(buf, 5, result);
-								result = jmpLocation;
-								continue;
-							}
-							dis64(buf, (int)bufLen, result);
+							buf = memory.readMemory(offset, bufLen);
+							std::vector<unsigned char> data = memory.getVector();
+							dis64(memory, (int)bufLen, offset);
 							break;
 						}
+#endif
 					}
 					else {
 						printf("\nNative Function Address is on previous page... woops!");
 					}
-					found++;
+					break;
 				}
+				if (found) break;
 			}
 #endif
 
@@ -543,5 +447,18 @@ int main(int argc, char **argv) {
 	unsigned long dver = 0;
 	dver = distorm_version();
 	printf("Disassembled with diStorm version: %d.%d.%d\n\n", (dver >> 16), ((dver) >> 8) & 0xff, dver & 0xff);
+
+#ifdef MAKE_NATIVE_DUMP_FILE
+	nativeDumpFile.magic = 0x5654414E; // 'NATV'
+	nativeDumpFile.version = 1;       // version of dump
+	nativeDumpFile.native_count = 0;   // number
+#endif
+	setupProcess();
+
 	for_each(ALLNATIVES.begin(), ALLNATIVES.end(), [](nativeStruct n) { getNativeFunction(n.hash, n.name); });
+#ifdef MAKE_NATIVE_DUMP_FILE
+	FILE *fw = fopen("nativeDumpFile.bin", "wb");
+	fwrite(&nativeDumpFile, sizeof(nativeDumpFile), 1, fw);
+	fclose(fw);
+#endif
 }
