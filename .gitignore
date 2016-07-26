@@ -255,3 +255,4 @@ ModelManifest.xml
 /NativeHashFunctionFinder.b757.de-obsfucated-method-1-and-2.txt
 /NativeHashFunctionFinder/Deobfu.cpp
 /NativeHashFunctionFinder/RecurseJumps.cpp
+/native-hashes.py

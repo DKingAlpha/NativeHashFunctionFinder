@@ -198,6 +198,14 @@
     <None Include="Libraries\distorm\distorm3.dll" />
     <None Include="Libraries\distorm\distorm3.exp" />
     <None Include="Libraries\distorm\README.md" />
+    <None Include="native-hashes-template.py">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="native-hashes-template.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <Library Include="Libraries\distorm\distorm.lib" />

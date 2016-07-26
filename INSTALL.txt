@@ -1,0 +1,40 @@
+[QUOTE=m0niSx]Hello,
+
+I'm sorry for PM'ing you here, but i really couldn't find any other way to ask you something, so i decided to do it this way.
+
+Anyways, since i've seen you were able to reverse the code related to scripting natives (such as: GET_PLAYER_PED ...), i was wondering how did you succeed to remove the obfuscation and find these pieces of code, i know that the game uses Safeengine Shielden, but so far i haven't found anything on how to (beat) it.
+
+I'm not asking you to teach me, or to explain it to me bit by bit, as i'm quite experienced with reversing games, its just that i'm not that much into unobfuscating/unpacking and i don't have the required knowledge to do it.
+
+So i'm gently asking if you could give me tricks or your way of dealing with it.
+
+Thanks[/QUOTE]
+
+No, I don't mind the PM at all.  I am quite new to reverse engineering, and I have invested some serious time in removing some of the more obvious obfu.  I guess it's a 3 part thing, and I'll briefly cover each part because I don't know what you do and don't know.   BTW, I read in an .nfo file it was protected with Arxan (https://en.wikipedia.org/wiki/Arxan_Technologies) but cannot confirm anything.
+
+Part 1 is dumping a running copy of the game, for this you can use Task Explorer (that's hard to google, so google for "CFF Explorer" and download that free suite of apps.  You'll find Task Explorer in the same place CFF Explorer installed to.   Dump GTA5.exe from memory to disk.
+
+Keep GTA5.exe open, and clone these two projects from github:
+
+https://github.com/sfinktah/NativeHashFunctionFinder
+https://github.com/sfinktah/native-gen 
+
+Add #define MAKE_NATIVE_DUMP_FILE to NativeHashFunctionFinder/NativeHashFunctionFinder.cpp, and it should produce a file called nativeDumpFile.bin.
+
+Now, IDA will default to loading your GTA5_Dumped.exe at the base address of 140000000, which is how I worked with 1.34.  But I decided to get smarter this time, and I did a manual load to the address indicated by Task Explorer when I exported it.   If you don't want to do this, then you should uncomment the offset adjustment at the end of this line NativeHashFunctionFinder.cpp:
+
+nativeDumpFile.natives[nativeDumpFile.native_count].func_offset = offset; /*  - 0x7FF79A160000 + 0x140000000; */
+
+Anyway, whatever... so you have .bin file, copy that to the native-gen root folder, and (after building that project) run this from it's root folder:
+
+bin/Debug/NativeGenerator.exe -p -l nativeDumpFile.bin
+
+that will generate a script you can load in IDA to automatically label the Thunks with (that's why I diverged to talk about the base loading address before).
+
+To fix the most horrendous obfu, checkout this http://reverseengineering.stackexchange.com/questions/13068/automating-pattern-based-de-obfuscation-of-x64-code-using-ida-plugins
+
+That's my question BTW, and I answered it myself, so you can copy that code to something.py and load it (Alt-F7) from IDA and it will go a hunting for code to fix... well, you'll actually have to uncomment a few lines at the bottom (or paste them in manually).
+
+I have a bunch of other tools I'm working on right now, maybe we can collab. LMK how all those instructions works out for you.  Since all the code is written (or adapted) by me, you'll be the only person ever to run it outside of my build environment, so there's a good chance something isn't going to work right.  
+
+I'm using IDA PRO 6.8 btw, although the code will work with 6.6, the .i64 databases are not compatible and we might want to swap notes or something, NFI.   If you need a copy, google IDA_Pro_v6.8_and_Hex-Rays_Decompiler_(ARM,x64,x86)_Green

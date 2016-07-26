@@ -33,6 +33,7 @@
 #define PSAPI_VERSION 1
 #define SUPPORT_64BIT_OFFSET
 #define DEOBFU
+#define MAKE_IDAPYTHON_SCRIPT
 
 #include <windows.h>
 #include <stdio.h>
@@ -47,6 +48,7 @@
 #include <TlHelp32.h>
 #include <algorithm>
 #include <psapi.h>
+#include <Shlwapi.h>
 #include "Libraries/distorm/include/distorm.h"
 #include "Libraries/distorm/include/mnemonics.h"
 #include "natives.h"
@@ -56,6 +58,7 @@
 #include "MemoryShim.h"
 #include "NativeDumpFile.h"
 #pragma comment(lib, "psapi.lib")
+#pragma comment(lib, "Shlwapi.lib")
 #pragma comment(lib, "Libraries/distorm/distorm.lib")
 // Useful references for future development: http://atom0s.com/forums/viewtopic.php?f=5&t=4&sid=4c99acd92ec8836e72d6740c9dad02ca
 /*
@@ -76,6 +79,54 @@
    BaseAddress: 48 8D 15 ?? ?? ?? ?? 48 63 C1 48 8B 8C C2 ?? ?? ?? ?? 48 85 C9 74 19
    GetPointerAddressA:                        48 8B 8C C2 ?? ?? ?? ?? 48 85 C9 74 19
 
+
+   autoAssemble([[
+   AOBSCANMODULE(LightsPTR,GTA5.exe,4C 89 0D xx xx xx xx 44 xx xx xx xx xx xx 8B 00 2B C1 48 8D)
+   REGISTERSYMBOL(LightsPTR)
+   ]])
+   local addr = getAddress("LightsPTR")
+   addr = addr + readInteger(addr + 3) + 7
+   unregisterSymbol("LightsPTR")
+   registerSymbol("LightsPTR", addr, true)
+
+   autoAssemble([[
+   AOBSCANMODULE(GetPointerAddressA,GTA5.exe,48 8B 8C C2 xx xx xx xx 48 85 C9 74 19)
+   REGISTERSYMBOL(GetPointerAddressA)
+   ]])
+   local addr = getAddress("GetPointerAddressA")
+   addr = addr + 4
+   addr = readInteger(addr)
+   addr = addr + getAddress("GTA5.exe")
+   unregisterSymbol("GetPointerAddressA")
+   registerSymbol("GetPointerAddressA", addr, true)
+
+   autoAssemble([[
+   AOBSCANMODULE(WorldPTR,GTA5.exe,48 8B 05 ? ? ? ? 45 ? ? ? ? 48 8B 48 08 48 85 C9 74 07)
+   REGISTERSYMBOL(WorldPTR)
+   ]])
+   local addr = getAddress("WorldPTR")
+   addr = addr + readInteger(addr + 3) + 7
+   unregisterSymbol("WorldPTR")
+   registerSymbol("WorldPTR", addr, true)
+
+   autoAssemble([[
+   AOBSCANMODULE(playersPTR,GTA5.exe,48 8B 0D ? ? ? ? E8 ? ? ? ? 48 8B C8 E8 ? ? ? ? 48 8B CF)
+   REGISTERSYMBOL(playersPTR)
+   ]])
+   local addr = getAddress("playersPTR")
+   addr = addr + readInteger(addr + 3) + 7
+   unregisterSymbol("playersPTR")
+   registerSymbol("playersPTR", addr, true)
+
+   <Description>"LockOnRange"</Description>
+   <VariableType>Float</VariableType>
+   <Address>WorldPTR</Address>
+   <Offsets>
+   <Offset>258</Offset>
+   <Offset>20</Offset>
+   <Offset>1098</Offset>
+   <Offset>8</Offset>
+   </Offsets>
 */
 
 
@@ -171,6 +222,20 @@ DWORD GetProcessByName(WCHAR* name)
 
 	return NULL;
 }
+
+
+LPTSTR AddBaseDir(LPCTSTR pszPath) {
+	static LPTSTR buf = new TCHAR[MAX_PATH];
+	if (!GetModuleFileName(NULL, buf, MAX_PATH))                  ErrorExit(TEXT("GetModuleFileName(NULL)"));
+	if (!PathRemoveFileSpec(buf)) 								  ErrorExit(TEXT("PathRemoveFileSpec"));
+	TCHAR destination[100] = _T("Break Free");
+	if (_tcscat_s(buf, MAX_PATH, pszPath))                        ErrorExit(TEXT("_tcscat_s"));
+	return buf;
+}
+
+
+
+
 
 
 void* ReadMemory(LPCVOID lpBaseAddress, SIZE_T bufLen = 128) {
@@ -298,18 +363,25 @@ int dis64(MemoryShim memory, int len, _OffsetType offset)
 NativeDumpFile nativeDumpFile;
 #endif
 
+#ifdef MAKE_IDAPYTHON_SCRIPT
+FILE *fPythonScript;
+#endif
+
+
+intptr_t baseAddress;
 SYSTEM_INFO si;
 int setupProcess() {
 
 	DWORD PPID = GetProcessByName(TEXT("GTA5"));
 	if (!PPID) {
-		// printf("Failed to GetProcessByName(GTA5)\n");
+		printf("Failed to GetProcessByName(GTA5)\n");
 		exit(1);
 	}
 	else {
 		printf("Found GTA5.exe, PID: %lu\n", PPID);
 	}
 
+	baseAddress = GetBaseAddress(PPID);
 	ZeroMemory(&si, sizeof(SYSTEM_INFO));
 	GetSystemInfo(&si);
 	hProcess = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, PPID);
@@ -329,10 +401,18 @@ int getNativeFunction(__int64 hash, char* name)
 	auto addr_max = (__int64)si.lpMaximumApplicationAddress;
 	static auto min_found = addr_max;
 
+	// This may speed up matters a great deal (or it may break things, remove 
+	// these three lines if you seem to be missing hashes)
+	if (min_found < addr_max) {
+		addr_min = min_found - 0x3000000;
+	}
 	auto found = 0;
 	// addr_min = 0x20fb194c000;
 	// 20FB2c68000
 	// 27f92213338
+	// 22fde5ed128 -
+	// 20fb194c000
+	//  2800000000
 	// Loop the pages of memory of the application.. 
 	while (addr_min < addr_max && !found)
 	{
@@ -385,6 +465,11 @@ int getNativeFunction(__int64 hash, char* name)
 						nativeDumpFile.natives[nativeDumpFile.native_count].hash = hash;
 						nativeDumpFile.natives[nativeDumpFile.native_count].func_offset = offset; /*  - 0x7FF79A160000 + 0x140000000; */
 						nativeDumpFile.native_count++;
+#endif
+#ifdef MAKE_IDAPYTHON_SCRIPT
+
+
+						fprintf( fPythonScript, "MakeNativeFunction( 0x%0x, \"%s\" )\n", offset, name );
 #endif
 						/*
 						BOOL WINAPI ReadProcessMemory(
@@ -448,17 +533,26 @@ int main(int argc, char **argv) {
 	dver = distorm_version();
 	printf("Disassembled with diStorm version: %d.%d.%d\n\n", (dver >> 16), ((dver) >> 8) & 0xff, dver & 0xff);
 
+
 #ifdef MAKE_NATIVE_DUMP_FILE
 	nativeDumpFile.magic = 0x5654414E; // 'NATV'
 	nativeDumpFile.version = 1;       // version of dump
 	nativeDumpFile.native_count = 0;   // number
 #endif
 	setupProcess();
+#ifdef MAKE_IDAPYTHON_SCRIPT
+	CopyFile(AddBaseDir(TEXT("\\native-hashes-template.py")), TEXT("native-hashes.py"), 0);
+	fopen_s( &fPythonScript, "native-hashes.py", "a+t" );
+	fprintf( fPythonScript, "\n__gtaBaseAddress = 0x%x\n", baseAddress );
+#endif
 
 	for_each(ALLNATIVES.begin(), ALLNATIVES.end(), [](nativeStruct n) { getNativeFunction(n.hash, n.name); });
 #ifdef MAKE_NATIVE_DUMP_FILE
 	FILE *fw = fopen("nativeDumpFile.bin", "wb");
 	fwrite(&nativeDumpFile, sizeof(nativeDumpFile), 1, fw);
 	fclose(fw);
+#endif
+#ifdef MAKE_IDAPYTHON_SCRIPT
+	fclose( fPythonScript );
 #endif
 }

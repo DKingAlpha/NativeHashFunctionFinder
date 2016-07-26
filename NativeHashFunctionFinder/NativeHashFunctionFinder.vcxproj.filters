@@ -101,6 +101,7 @@
     <None Include="Libraries\distorm\distorm3.dll" />
     <None Include="Libraries\distorm\distorm3.exp" />
     <None Include="Libraries\distorm\README.md" />
+    <None Include="native-hashes-template.py" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="Libraries\distorm\distorm.lib" />
