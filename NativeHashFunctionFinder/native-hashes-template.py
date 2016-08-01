@@ -6,7 +6,7 @@ import idaapi
 from idc import *
 from binascii import unhexlify
 
-__idaBaseAddress = Segments().next()
+__idaBaseAddress = list(Segments())[SegByName('.text')]
 
 def PatchBytes(ea, replaceList):
     for i in range(len(replaceList)):
@@ -43,7 +43,7 @@ def MakeNativeFunction(ea, name):
         SetFunctionEnd(ea, ea+5)
 
     if len != 5:
-        print "Error making NativeFunction %s at %x" % (ea, name)
+        print "Error making NativeFunction %s at %x" % (name, ea)
         return
 
     codeMnem = GetMnem(ea)
