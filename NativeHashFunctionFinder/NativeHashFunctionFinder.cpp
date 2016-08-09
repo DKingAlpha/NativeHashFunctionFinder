@@ -62,7 +62,13 @@
 #pragma comment(lib, "Libraries/distorm/distorm.lib")
 // Useful references for future development: http://atom0s.com/forums/viewtopic.php?f=5&t=4&sid=4c99acd92ec8836e72d6740c9dad02ca
 /*
-   Base Address:
+
+Steam Check Function:
+48 83 ec ?? ff 15 ?? ?? ?? ?? 48 85 c0 74 2a ff 15 ?? ?? ?? ?? 48 8d 54 24 ?? 4c 8b 00 48 8b c8 41 ff 50 10
+
+
+
+Base Address:
    
    7FF79AB3F785 - 9DF785 = 7FF79A160000
    7FF79AB3F785 + ffffffffff62087b = 7FF79A160000
@@ -170,8 +176,6 @@ void ErrorExit(LPTSTR lpszFunction)
 
 __int64 GetBaseAddress(DWORD processId)
 {
-	TCHAR szProcessName[MAX_PATH] = TEXT("<unknown>");
-
 	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
 		PROCESS_VM_READ,
 		FALSE, processId);
@@ -404,7 +408,7 @@ int getNativeFunction(__int64 hash, char* name)
 	// This may speed up matters a great deal (or it may break things, remove 
 	// these three lines if you seem to be missing hashes)
 	if (min_found < addr_max) {
-		addr_min = min_found - 0x3000000;
+		addr_min = min_found - 0x5000000;
 	}
 	auto found = 0;
 	// addr_min = 0x20fb194c000;
@@ -469,7 +473,7 @@ int getNativeFunction(__int64 hash, char* name)
 #ifdef MAKE_IDAPYTHON_SCRIPT
 
 
-						fprintf( fPythonScript, "MakeNativeFunction( 0x%0x, \"%s\" )\n", offset, name );
+						fprintf( fPythonScript, "MakeNativeFunction( 0x%012llx, \"%s\" )\n", offset, name );
 #endif
 						/*
 						BOOL WINAPI ReadProcessMemory(
@@ -542,8 +546,8 @@ int main(int argc, char **argv) {
 	setupProcess();
 #ifdef MAKE_IDAPYTHON_SCRIPT
 	CopyFile(AddBaseDir(TEXT("\\native-hashes-template.py")), TEXT("native-hashes.py"), 0);
-	fopen_s( &fPythonScript, "native-hashes.py", "a+t" );
-	fprintf( fPythonScript, "\n__gtaBaseAddress = 0x%x\n", baseAddress );
+	fopen_s( &fPythonScript, "native-hashes.py", "a+" );
+	fprintf( fPythonScript, "\n__gtaBaseAddress = 0x%012llx\n", baseAddress );
 #endif
 
 	for_each(ALLNATIVES.begin(), ALLNATIVES.end(), [](nativeStruct n) { getNativeFunction(n.hash, n.name); });

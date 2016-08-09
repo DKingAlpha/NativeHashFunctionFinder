@@ -6,7 +6,7 @@ import idaapi
 from idc import *
 from binascii import unhexlify
 
-__idaBaseAddress = list(Segments())[SegByName('.text')]
+__idaBaseAddress = Segments().next()
 
 def PatchBytes(ea, replaceList):
     for i in range(len(replaceList)):
@@ -14,7 +14,7 @@ def PatchBytes(ea, replaceList):
             idaapi.patch_byte(ea+i, replaceList[i])
 
 def rebaseAddress(ea):
-    return ea - __gtaBaseAddress + __idaBaseAddress
+    return ea #  - __gtaBaseAddress + __idaBaseAddress
 
 def forceAsCode(ea, length):
     if not isCode(GetFlags(ea)):
@@ -38,13 +38,15 @@ def forceAsCode(ea, length):
 def MakeNativeFunction(ea, name):
     ea = rebaseAddress(ea)
     len = forceAsCode(ea, 5)
-    MakeName(ea, name)
-    if not MakeFunction(ea, ea+5):
-        SetFunctionEnd(ea, ea+5)
-
-    if len != 5:
-        print "Error making NativeFunction %s at %x" % (name, ea)
-        return
+    MakeNameEx( LocByName(name), '', 0 )
+    if not MakeNameEx(ea, name, SN_NOWARN):
+        MakeNameEx( LocByName(name), '', 0 )
+        if not MakeNameEx(ea, name, SN_NOWARN):
+            print "%012x: *** Couldn't set name %s" % (ea, name)
+    if not MakeFunction(ea, BADADDR):
+        if not GetFunctionName(ea):
+            print "%012x: *** Couldn't make area into function" % (ea)
+        # SetFunctionEnd(ea, ea+5)
 
     codeMnem = GetMnem(ea)
     codeDisasm = GetDisasm(ea)
