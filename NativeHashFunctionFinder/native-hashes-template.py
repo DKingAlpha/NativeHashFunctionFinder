@@ -6,12 +6,21 @@ import idaapi
 from idc import *
 # from binascii import unhexlify
 
-__idaBaseAddress = list(Segments())[SegByName('.text')]
+# Loop through segments to find HEADER
+ea = FirstSeg()
+while ea != BADADDR and SegName(ea) != 'HEADER':
+    ea = NextSeg(ea)
+__idaBaseAddress = ea
+if ea == BADADDR:
+    print "No HEADER segment found, relying on __ImageBase label"
 __ImageBase = LocByName("__ImageBase")
 if __ImageBase == BADADDR:
-    MakeName(__idaBaseAddress, "__ImageBase")
-elif __ImageBase != __idaBaseAddress:
-    print "Error: Start of .text segment does not match label __ImageBase, please adjust or remove __ImageBase label (this is a safety check to ensure the correct addresses will be used)." % (__idaBaseAddress, __ImageBase)
+    raise Exception("You have no __ImageBase set in IDA.")
+    # MakeName(__idaBaseAddress, "__ImageBase")
+if __idaBaseAddress == BADADDR:
+    __idaBaseAddress = __ImageBase
+if __ImageBase != __idaBaseAddress:
+    print "Error: Start of HEADER segment 0x%012x does not match label __ImageBase 0x%012x, please adjust or remove __ImageBase label, or manually alter this file to set the correct base for your .text segment" % (__idaBaseAddress, __ImageBase)
     raise Exception("Mismatching addresses")
 
 
@@ -67,11 +76,14 @@ def MakeNativeFunction(ea, name):
     codeDisasm = GetDisasm(ea)
     if codeMnem == 'jmp':
         forceAsCode(GetOperandValue(ea, 0), 8)
+        targetName = Name(ea)
         targetMnem = GetMnem(GetOperandValue(ea, 0))
         targetDisasm = GetDisasm(GetOperandValue(ea, 0))
         if targetMnem == "retn":
             MakeNop(ea, 8) # 8 bit alignment
             extraMsg = " (replaced original JMP with RETN)"
+        elif targetName.index('sub_') == 0:
+            pass
         else:
             extraMsg = ""
 
