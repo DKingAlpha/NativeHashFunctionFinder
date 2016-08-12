@@ -4,9 +4,16 @@
 
 import idaapi
 from idc import *
-from binascii import unhexlify
+# from binascii import unhexlify
 
-__idaBaseAddress = Segments().next()
+__idaBaseAddress = list(Segments())[SegByName('.text')]
+__ImageBase = LocByName("__ImageBase")
+if __ImageBase == BADADDR:
+    MakeName(__idaBaseAddress, "__ImageBase")
+elif __ImageBase != __idaBaseAddress:
+    print "Error: Start of .text segment does not match label __ImageBase, please adjust or remove __ImageBase label (this is a safety check to ensure the correct addresses will be used)." % (__idaBaseAddress, __ImageBase)
+    raise Exception("Mismatching addresses")
+
 
 def PatchBytes(ea, replaceList):
     for i in range(len(replaceList)):
@@ -14,7 +21,7 @@ def PatchBytes(ea, replaceList):
             idaapi.patch_byte(ea+i, replaceList[i])
 
 def rebaseAddress(ea):
-    return ea #  - __gtaBaseAddress + __idaBaseAddress
+    return ea - __gtaBaseAddress + __idaBaseAddress
 
 def forceAsCode(ea, length):
     if not isCode(GetFlags(ea)):
@@ -27,25 +34,33 @@ def forceAsCode(ea, length):
 
         if codeLen:
             if not isCode(GetFlags(ea)):
-                print "Couldn't convert block into code even though it said we did 0x%012x" % ea
+                print "%0x012x: Couldn't convert block into code even though it said we did" % ea
                 return None
             return codeLen
         else:
-            print "Couldn't convert block into code at 0x%012x (head: 0x%012x)" % (ea, head)
+            print "0x%012x: (head: 0x%012x) Couldn't convert block into code" % (ea, head)
             return None
     return length
 
 def MakeNativeFunction(ea, name):
     ea = rebaseAddress(ea)
-    len = forceAsCode(ea, 5)
-    MakeNameEx( LocByName(name), '', 0 )
+    len = forceAsCode(ea, 5) # Natives are almost always a 5 byte JMP
+    loc = 0
+    while True:
+        loc = LocByName(name)
+        if loc == BADADDR:
+            break
+        if loc != ea:
+            print "0x%012x: Removed existing name '%s'" % (loc, name)
+        MakeNameEx(loc, '', 0 )  # Remove any existing names that match
     if not MakeNameEx(ea, name, SN_NOWARN):
-        MakeNameEx( LocByName(name), '', 0 )
+        # Try removing a previously existing name
+        MakeNameEx( LocByName(name), '', 0 ) 
         if not MakeNameEx(ea, name, SN_NOWARN):
-            print "%012x: *** Couldn't set name %s" % (ea, name)
+            print "0x%012x: *** Couldn't set name %s" % (ea, name)
     if not MakeFunction(ea, BADADDR):
         if not GetFunctionName(ea):
-            print "%012x: *** Couldn't make area into function" % (ea)
+            print "0x%012x: *** Couldn't make area into function" % (ea)
         # SetFunctionEnd(ea, ea+5)
 
     codeMnem = GetMnem(ea)
@@ -60,9 +75,9 @@ def MakeNativeFunction(ea, name):
         else:
             extraMsg = ""
 
-        print "%012x: %-70s: %s -> %s%s" % (ea, name, codeDisasm, targetDisasm, extraMsg)
+        print "0x%012x: %-70s: %s -> %s%s" % (ea, name, codeDisasm, targetDisasm, extraMsg)
     else:
-        print "%012x: %-70s: %s" % (ea, name, codeDisasm)
+        print "0x%012x: %-70s: %s" % (ea, name, codeDisasm)
     
 #---------------------------------------------------------------------
 
