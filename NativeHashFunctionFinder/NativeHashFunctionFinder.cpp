@@ -32,7 +32,7 @@
 #pragma warning(disable:4996)
 #define PSAPI_VERSION 1
 #define SUPPORT_64BIT_OFFSET
-// #define DEOBFU
+#define DEOBFU
 #define MAKE_IDAPYTHON_SCRIPT
 
 #include <windows.h>
