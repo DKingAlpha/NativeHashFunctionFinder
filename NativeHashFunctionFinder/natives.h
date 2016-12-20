@@ -12,6 +12,7 @@ struct nativeStruct
 // Updated to whatever build came after b877/887/8wtf
 const std::vector<nativeStruct> ALLNATIVES
 {
+	{ "_0x1950DAE9848A4739", 0x50DB6718A5C69CB3 },
 	{ "ABSF", 0xC3D3EC28F0EB3C6D },
 	{ "ABSI", 0xC6C425A326326DEF },
 	{ "ACOS", 0x895BE99431A21B1C },

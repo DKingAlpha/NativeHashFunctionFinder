@@ -31,6 +31,7 @@ if __idaBaseAddress == 0:
             break
         if SegName(seg) == '.text':
             __idaBaseAddress = seg - 0x1000
+            __ImageBase = __idaBaseAddress
             print "No HEADER segment found, assuming BaseAddress is 0x%012x" % ( __idaBaseAddress )
             break
 
