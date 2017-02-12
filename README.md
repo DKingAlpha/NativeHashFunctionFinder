@@ -13,7 +13,9 @@ Includes https://github.com/gdabah/distorm library.
 
 > Powerful Disassembler Library For x86/AMD64
 
-**Currently supports b757 only**
+**Currently supports b944.2 only**
+
+If it isn't working, try unloading your stupid mods first.
 
 ```
 Scanning process for PLAYER::GET_PLAYER_PED hash 0xc834a7c58deb59b4
